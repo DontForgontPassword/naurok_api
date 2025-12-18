@@ -8,20 +8,14 @@ const client = wrapper(axios.create({ jar }))
 
 /**
  * Получает данные теста по сессии
- * @param {string} userSession Сессия пользователя проходящего тест
+ * @param {number} userSession Сессия пользователя проходящего тест
  * @returns 
  */
 async function getTestSession(userSession) {
-    const response = await client.get(`https://naurok.com.ua/api2/test/sessions/${session}`, {
-        headers: {
-            "sec-ch-ua": "\"Microsoft Edge\";v=\"142\", \"Chromium\";v=\"142\", \"Not A(Brand\";v=\"22\"",
-            "sec-ch-ua-mobile": "?0",
-            "sec-ch-ua-platform": "\"Windows\"",
-            "upgrade-insecure-requests": "1"
-        },
-    });
+    const response = await client.get(`https://naurok.com.ua/api2/test/sessions/${userSession}`);
 
-    if (response.status !== 200) throw Error(`HTTP: ${response.status}; Text: ${response.statusText}`);
+    if (response.status !== 200)
+        throw Error(`HTTP: ${response.status}; Text: ${response.statusText}`);
 
     return await response.data;
 }
@@ -39,9 +33,10 @@ function getSessionTokenFromTest(html) {
 
 /**
  * Заходит на тест по указанному айди
- * @param {string} id Айди пользователя
+ * @param {string} id Айди теста
  * @param {string} name Имя пользователя
- * @returns 
+ * @example
+ * joinTestGame("8807037", "Джони Депп")
  */
 async function joinTestGame(id, name) {
     const testResponse = await client.get(`https://naurok.com.ua/test/join?gamecode=${id}`);
@@ -61,55 +56,57 @@ async function joinTestGame(id, name) {
         }
     });
 
-    return csrf;
+    if (joinResponse.status !== 200)
+        throw Error(`HTTP: ${joinResponse.status}; Text: ${joinResponse.statusText}`);
 }
 
 /**
  * Отвечает на вопрос
- * @param {string} sessionId  Сессия пользователя проходящего тест
- * @param {string} answerId Айди ответа
+ * @param {number} userSession  Сессия пользователя проходящего тест
  * @param {string} questionId Айди вопроса
- * @returns 
+ * @param {Array<string>} answerIds Айди ответов
+ * @returns {object}
+ * @example
+ * setTestAnswer(123469499, "12342633", ["123440569"]).then(console.log)
  */
-async function setTestAnswer(sessionId, answerId, questionId) {
-    const response = await fetch("https://naurok.com.ua/api2/test/responses/answer", {
-        method: "PUT",
-        mode: "cors",
-        credentials: "include",
-        referrerPolicy: "strict-origin-when-cross-origin",
-        headers: {
-            "accept": "application/json, text/plain, */*",
-            "sec-fetch-dest": "empty",
-            "sec-fetch-mode": "cors",
-            "sec-fetch-site": "same-origin"
-        },
-        body: JSON.stringify({
-            session_id: sessionId,
-            answer: [answerId],
+async function setTestAnswer(userSession, questionId, answerIds) {
+    const answerResponse = await client.put(
+        "https://naurok.com.ua/api2/test/responses/answer",
+        {
+            session_id: userSession,
+            answer: answerIds,
             question_id: questionId,
-            show_answer: 0,
+            show_answer: 1,
             type: "quiz",
             point: "2",
             homeworkType: 1,
-            homework: false
-        })
-    })
+            homework: true
+        }
+    );
 
-    return response.json()
+
+    if (answerResponse.status !== 200)
+        throw Error(`HTTP: ${answerResponse.status}; Text: ${answerResponse.statusText}`);
+
+    return await answerResponse.data
 }
 
 /**
  * Завершает тест
- * @param {string} userSession Сессия пользователя проходящего тест
- * @returns 
+ * @param {number} userSession Сессия пользователя проходящего тест
+ * @example
+ * endTestSession("622275507")
  */
-function endTestSession(userSession) {
-    return axios.post(`https://naurok.com.ua/api2/test/sessions/end/${session}`, {
+async function endTestSession(userSession) {
+    const endTestResponse = await axios.post(`https://naurok.com.ua/api2/test/sessions/end/${userSession}`, {
         method: "PUT",
         headers: {
             "accept": "application/json, text/plain, */*",
         },
-    })
+    });
+
+    if (endTestResponse.status !== 200)
+        throw Error(`HTTP: ${endTestResponse.status}; Text: ${endTestResponse.statusText}`);
 }
 
 module.exports = {

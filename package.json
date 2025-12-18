@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node .\\index.js",
+    "lint": "npx eslint ."
   },
   "repository": {
     "type": "git",
@@ -22,5 +23,10 @@
     "axios-cookiejar-support": "^6.0.5",
     "cheerio": "^1.1.2",
     "tough-cookie": "^6.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "eslint": "^9.39.2",
+    "globals": "^16.5.0"
   }
 }
