@@ -1,101 +1,121 @@
 const cheerio = require("cheerio")
 const axios = require("axios")
+const { wrapper } = require("axios-cookiejar-support");
+const { CookieJar } = require("tough-cookie");
 
-async function get_test_session(Session) {
-    const response = await fetch(`https://naurok.com.ua/api2/test/sessions/${Session}`, {
-        "headers": {
-            "accept": "application/json, text/plain, */*",
-            "accept-language": "en-US,en;q=0.9,ru;q=0.8",
-            "sec-ch-ua": "\"Chromium\";v=\"122\", \"Not(A:Brand\";v=\"24\", \"Google Chrome\";v=\"122\"",
+const jar = new CookieJar()
+const client = wrapper(axios.create({ jar }))
+
+/**
+ * Получает данные теста по сессии
+ * @param {string} userSession Сессия пользователя проходящего тест
+ * @returns 
+ */
+async function getTestSession(userSession) {
+    const response = await client.get(`https://naurok.com.ua/api2/test/sessions/${session}`, {
+        headers: {
+            "sec-ch-ua": "\"Microsoft Edge\";v=\"142\", \"Chromium\";v=\"142\", \"Not A(Brand\";v=\"22\"",
             "sec-ch-ua-mobile": "?0",
             "sec-ch-ua-platform": "\"Windows\"",
-            "sec-fetch-dest": "empty",
-            "sec-fetch-mode": "cors",
-            "sec-fetch-site": "same-origin",
-            "Referrer-Policy": "strict-origin-when-cross-origin"
+            "upgrade-insecure-requests": "1"
         },
-        "body": null,
-        "method": "GET"
-    })
-    if (response.ok) {
-        return await response.json()
-    } else {
-        return "Ошибка"
-    }
+    });
+
+    if (response.status !== 200) throw Error(`HTTP: ${response.status}; Text: ${response.statusText}`);
+
+    return await response.data;
 }
 
-function get_session_token_from_test(html) {
+/**
+ * Получает сессию пользователя
+ * @param {string} html Содержимое страницы с тестом
+ * @returns {string} Сессия пользователя проходящего тест
+ */
+function getSessionTokenFromTest(html) {
     const $ = cheerio.load(html);
-    const session_not_parsed = $('div[ng-app="testik"]').attr("ng-init");
-    const session_parsed = session_not_parsed.split(",")[1];
-    return session_parsed;
+    const ngInit = $('div[ng-app="testik"]').attr("ng-init");
+    return ngInit.split(",")[1];
 }
 
-async function join_test_game(ID, Name) {
-    const response = await axios.get(`https://naurok.com.ua/test/join?gamecode=${ID}`);
-    const html = response.data;
-    const $ = cheerio.load(html);
+/**
+ * Заходит на тест по указанному айди
+ * @param {string} id Айди пользователя
+ * @param {string} name Имя пользователя
+ * @returns 
+ */
+async function joinTestGame(id, name) {
+    const testResponse = await client.get(`https://naurok.com.ua/test/join?gamecode=${id}`);
+
+    const $ = cheerio.load(await testResponse.data);
 
     const csrf = $('meta[name="csrf-token"]').attr("content");
 
     const formData = new FormData();
     formData.append('_csrf', csrf);
-    formData.append('JoinForm[gamecode]', ID);
-    formData.append('JoinForm[name]', Name);
+    formData.append('JoinForm[gamecode]', id);
+    formData.append('JoinForm[name]', name);
 
-    const joinResponse = await axios.post(`https://naurok.com.ua/test/join`, formData, {
+    const joinResponse = await client.post(`https://naurok.com.ua/test/join`, formData, {
         headers: {
-            'Cookie': response.headers['set-cookie']
+            'Cookie': testResponse.headers['set-cookie']
         }
     });
+
+    return csrf;
 }
 
-async function set_test_answer(sessionId, answerId, questionId, point, homework) {
+/**
+ * Отвечает на вопрос
+ * @param {string} sessionId  Сессия пользователя проходящего тест
+ * @param {string} answerId Айди ответа
+ * @param {string} questionId Айди вопроса
+ * @returns 
+ */
+async function setTestAnswer(sessionId, answerId, questionId) {
     const response = await fetch("https://naurok.com.ua/api2/test/responses/answer", {
-        "headers": {
+        method: "PUT",
+        mode: "cors",
+        credentials: "include",
+        referrerPolicy: "strict-origin-when-cross-origin",
+        headers: {
             "accept": "application/json, text/plain, */*",
-            "accept-language": "en-US,en;q=0.9,ru;q=0.8",
-            "content-type": "application/json;charset=UTF-8",
-            "sec-ch-ua": "\"Chromium\";v=\"122\", \"Not(A:Brand\";v=\"24\", \"Google Chrome\";v=\"122\"",
-            "sec-ch-ua-mobile": "?0",
-            "sec-ch-ua-platform": "\"Windows\"",
             "sec-fetch-dest": "empty",
             "sec-fetch-mode": "cors",
             "sec-fetch-site": "same-origin"
         },
-        "referrerPolicy": "strict-origin-when-cross-origin",
-        "body": `{\"session_id\":${sessionId},\"answer\":[\"${answerId}\"],\"question_id\":\"${questionId}\",\"show_answer\":0,\"type\":\"quiz\",\"point\":\"${point}\",\"homeworkType\":1,\"homework\":${homework}}`,
-        "method": "PUT",
-        "mode": "cors",
-        "credentials": "include"
-    });
-    
-    const data = await response.json();
+        body: JSON.stringify({
+            session_id: sessionId,
+            answer: [answerId],
+            question_id: questionId,
+            show_answer: 0,
+            type: "quiz",
+            point: "2",
+            homeworkType: 1,
+            homework: false
+        })
+    })
 
-    return data
+    return response.json()
 }
 
-function end_test_session(Session) {
-    fetch(`https://naurok.com.ua/api2/test/sessions/end/${Session}`, {
-        "headers": {
+/**
+ * Завершает тест
+ * @param {string} userSession Сессия пользователя проходящего тест
+ * @returns 
+ */
+function endTestSession(userSession) {
+    return axios.post(`https://naurok.com.ua/api2/test/sessions/end/${session}`, {
+        method: "PUT",
+        headers: {
             "accept": "application/json, text/plain, */*",
-            "accept-language": "en-US,en;q=0.9,ru;q=0.8",
-            "sec-ch-ua": "\"Chromium\";v=\"122\", \"Not(A:Brand\";v=\"24\", \"Google Chrome\";v=\"122\"",
-            "sec-ch-ua-mobile": "?0",
-            "sec-ch-ua-platform": "\"Windows\"",
-            "sec-fetch-dest": "empty",
-            "sec-fetch-mode": "cors",
-            "sec-fetch-site": "same-origin"
         },
-        "referrer": "https://naurok.com.ua/test/testing/be5ac295-7b92-4730-8e78-e0efa929fa16",
-        "referrerPolicy": "strict-origin-when-cross-origin",
-        "body": null,
-        "method": "PUT",
-        "mode": "cors",
-        "credentials": "include"
-    });
+    })
 }
 
 module.exports = {
-    get_test_session, join_test_game, set_test_answer, get_session_token_from_test, end_test_session
+    getTestSession,
+    joinTestGame,
+    setTestAnswer,
+    getSessionTokenFromTest,
+    endTestSession
 }

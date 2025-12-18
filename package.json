@@ -1,0 +1,26 @@
+{
+  "name": "naurok-api",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DontForgontPassword/naurok-api.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/DontForgontPassword/naurok-api/issues"
+  },
+  "homepage": "https://github.com/DontForgontPassword/naurok-api#readme",
+  "dependencies": {
+    "axios": "^1.13.2",
+    "axios-cookiejar-support": "^6.0.5",
+    "cheerio": "^1.1.2",
+    "tough-cookie": "^6.0.0"
+  }
+}
